@@ -1,0 +1,166 @@
+{
+  "name": "Meta Ads – Rechnungen automatisch abholen → Google Drive",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "trigger",
+      "name": "⏰ Monatlich am 1. um 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "notes": "Läuft am 1. jedes Monats um 08:00.\nAlternativ: Manual Trigger zum Testen."
+    },
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "▶️ Manuell starten",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── KONFIGURATION ───────────────────────────────────\n// Hier eure Werbekonten eintragen (act_ID Format)\nconst AD_ACCOUNTS = [\n  'act_111111111111',\n  'act_222222222222',\n  'act_333333333333',\n  // ... weitere Konten\n];\n\n// Mapping: Account-ID → Kundenname (für Google Drive Ordner)\nconst ACCOUNT_NAMES = {\n  'act_111111111111': 'Kunde_A_GmbH',\n  'act_222222222222': 'Kunde_B_AG',\n  'act_333333333333': 'Kunde_C_UG',\n};\n\n// Zeitraum: Vormonat\nconst now = new Date();\nconst firstOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);\nconst lastOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);\n\nconst dateFrom = firstOfLastMonth.toISOString().split('T')[0];\nconst dateTo = lastOfLastMonth.toISOString().split('T')[0];\n\nreturn [{\n  json: {\n    accounts: AD_ACCOUNTS,\n    accountNames: ACCOUNT_NAMES,\n    dateFrom,\n    dateTo,\n    scraperInput: JSON.stringify({\n      accounts: AD_ACCOUNTS,\n      dateFrom,\n      dateTo,\n    }),\n  }\n}];"
+      },
+      "id": "config",
+      "name": "⚙️ Konfiguration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "command": "=cd /opt/meta-invoice-scraper && node scraper.js '{{ $json.scraperInput }}'",
+        "timeout": 300
+      },
+      "id": "run_scraper",
+      "name": "🤖 Playwright Scraper starten",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [720, 400],
+      "notes": "Führt das Playwright-Script aus.\nTimeout: 5 Minuten.\nPfad anpassen falls nötig!"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Scraper-Output parsen\nconst stdout = $input.first().json.stdout || '';\nconst stderr = $input.first().json.stderr || '';\n\n// JSON-Ergebnis aus dem Output extrahieren\nconst jsonMatch = stdout.match(/--- RESULT_JSON ---\\n([\\s\\S]*?)\\n--- END_RESULT ---/);\n\nif (!jsonMatch) {\n  // Fehler oder Session abgelaufen\n  if (stdout.includes('SESSION_EXPIRED') || stderr.includes('SESSION_EXPIRED')) {\n    throw new Error('Meta Session abgelaufen! Bitte login.js erneut auf dem Server ausführen.');\n  }\n  throw new Error(`Scraper-Fehler: ${stderr || stdout}`);\n}\n\nconst result = JSON.parse(jsonMatch[1]);\n\nif (!result.success || result.downloaded === 0) {\n  // Keine Dateien → Warnung aber kein Abbruch\n  return [{\n    json: {\n      warning: 'Keine Rechnungen gefunden',\n      result,\n      stderr: stderr.substring(0, 500),\n    }\n  }];\n}\n\n// Pro heruntergeladene Datei ein Item erstellen\nconst config = $('⚙️ Konfiguration').first().json;\n\nreturn result.files.map(file => ({\n  json: {\n    filePath: file.file,\n    fileName: file.filename,\n    accountId: file.account,\n    customerName: config.accountNames[file.account] || file.account,\n    dateFrom: config.dateFrom,\n    dateTo: config.dateTo,\n  }\n}));"
+      },
+      "id": "parse_result",
+      "name": "📋 Ergebnis parsen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 400]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.filePath }}",
+        "options": {}
+      },
+      "id": "read_file",
+      "name": "📄 PDF lesen",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1200, 400],
+      "notes": "Liest die heruntergeladene PDF-Datei als Binary"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "name": "={{ $json.fileName }}",
+        "folderId": "={{ $json.driveFolderId }}",
+        "options": {
+          "parentFolderId": ""
+        }
+      },
+      "id": "gdrive_upload",
+      "name": "☁️ Google Drive Upload",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1680, 400],
+      "notes": "Lädt die PDF in den kundenspezifischen Ordner.\nGoogle Drive Credentials müssen in n8n konfiguriert sein!"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Google Drive Ordnerstruktur:\n// /Meta Rechnungen/\n//   /Kunde_A_GmbH/\n//     /2025-01/\n//   /Kunde_B_AG/\n//     /2025-01/\n\n// ANPASSEN: Die ID eures Basis-Ordners in Google Drive\nconst BASE_FOLDER_ID = 'HIER_EURE_GOOGLE_DRIVE_FOLDER_ID';\n\n// Monatlicher Unterordner\nconst dateFrom = $json.dateFrom;\nconst monthFolder = dateFrom.substring(0, 7); // z.B. '2025-01'\n\n// Ordnerpfad für diesen Kunden\nconst folderPath = `${$json.customerName}/${monthFolder}`;\n\nreturn [{\n  json: {\n    ...$json,\n    baseFolderId: BASE_FOLDER_ID,\n    folderPath,\n    driveFolderId: BASE_FOLDER_ID, // Wird ggf. durch Subfolder-Logik ersetzt\n  }\n}];\n\n// HINWEIS: Für automatische Subfolder-Erstellung\n// kann ein separater Google Drive Node vorgeschaltet werden,\n// der prüft ob der Ordner existiert und ihn ggf. anlegt."
+      },
+      "id": "prepare_upload",
+      "name": "📁 Drive-Ordner bestimmen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "summary",
+              "name": "text",
+              "value": "=✅ Meta Rechnungen erfolgreich abgeholt!\n\n📊 {{ $items().length }} Datei(en) heruntergeladen\n📅 Zeitraum: {{ $('⚙️ Konfiguration').first().json.dateFrom }} bis {{ $('⚙️ Konfiguration').first().json.dateTo }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "summary",
+      "name": "📊 Zusammenfassung",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1920, 400]
+    }
+  ],
+  "connections": {
+    "⏰ Monatlich am 1. um 08:00": {
+      "main": [
+        [{ "node": "⚙️ Konfiguration", "type": "main", "index": 0 }]
+      ]
+    },
+    "▶️ Manuell starten": {
+      "main": [
+        [{ "node": "⚙️ Konfiguration", "type": "main", "index": 0 }]
+      ]
+    },
+    "⚙️ Konfiguration": {
+      "main": [
+        [{ "node": "🤖 Playwright Scraper starten", "type": "main", "index": 0 }]
+      ]
+    },
+    "🤖 Playwright Scraper starten": {
+      "main": [
+        [{ "node": "📋 Ergebnis parsen", "type": "main", "index": 0 }]
+      ]
+    },
+    "📋 Ergebnis parsen": {
+      "main": [
+        [{ "node": "📄 PDF lesen", "type": "main", "index": 0 }]
+      ]
+    },
+    "📄 PDF lesen": {
+      "main": [
+        [{ "node": "📁 Drive-Ordner bestimmen", "type": "main", "index": 0 }]
+      ]
+    },
+    "📁 Drive-Ordner bestimmen": {
+      "main": [
+        [{ "node": "☁️ Google Drive Upload", "type": "main", "index": 0 }]
+      ]
+    },
+    "☁️ Google Drive Upload": {
+      "main": [
+        [{ "node": "📊 Zusammenfassung", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

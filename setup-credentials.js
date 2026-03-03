@@ -24,6 +24,7 @@ const CREDENTIAL_KEY = process.env.CREDENTIAL_KEY;
 function ask(rl, question, hidden = false) {
   return new Promise((resolve) => {
     if (hidden && process.stdin.isTTY) {
+      // Passwort-Eingabe: Zeichen nicht anzeigen
       process.stdout.write(question);
       const stdin = process.stdin;
       stdin.setRawMode(true);
@@ -38,8 +39,10 @@ function ask(rl, question, hidden = false) {
           process.stdout.write('\n');
           resolve(input);
         } else if (char === '\u0003') {
+          // Ctrl+C
           process.exit(0);
         } else if (char === '\u007f' || char === '\b') {
+          // Backspace
           if (input.length > 0) {
             input = input.slice(0, -1);
             process.stdout.write('\b \b');
@@ -107,6 +110,7 @@ async function main() {
     process.exit(1);
   }
 
+  // TOTP-Test falls angegeben
   if (totpSecret) {
     try {
       const testCode = generateTOTP(totpSecret);
@@ -120,6 +124,7 @@ async function main() {
     }
   }
 
+  // Credentials speichern
   const credentials = {
     email,
     password,
@@ -134,6 +139,7 @@ async function main() {
   console.log('  Datei: ' + CREDENTIALS_FILE);
   console.log('');
 
+  // Verifikation: Lesen und entschluesseln
   try {
     const loaded = loadCredentials(CREDENTIALS_FILE, CREDENTIAL_KEY);
     if (loaded.email === email) {

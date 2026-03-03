@@ -188,7 +188,7 @@ async function handleDownload(req, res, customerId, filename) {
     res.writeHead(200, {
       'Content-Type': 'application/pdf',
       'Content-Length': stat.size,
-      'Content-Disposition': `attachment; filename=\"${safeName}\"`,
+      'Content-Disposition': `attachment; filename="${safeName}"`,
     });
     fs.createReadStream(filePath).pipe(res);
   } catch (e) {

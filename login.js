@@ -2,8 +2,8 @@
 /**
  * Meta Login Script – Erstellt eine persistente Session
  * 
- * Oeffnet einen sichtbaren Browser, damit du dich manuell einloggen
- * und ggf. 2FA bestaetigen kannst. Danach wird die Session gespeichert.
+ * Öffnet einen sichtbaren Browser, damit du dich manuell einloggen
+ * und ggf. 2FA bestätigen kannst. Danach wird die Session gespeichert.
  * 
  * Aufruf: node login.js
  * 
@@ -19,16 +19,16 @@ const AUTH_FILE = process.env.AUTH_FILE || path.join(__dirname, 'auth.json');
 const BILLING_URL = 'https://business.facebook.com/billing_hub/payment_activity';
 
 async function main() {
-  console.log('Meta Login Script');
-  console.log('='.repeat(50));
+  console.log('🔐 Meta Login Script');
+  console.log('═'.repeat(50));
   console.log('');
-  console.log('Ein Browser-Fenster wird geoeffnet.');
+  console.log('Ein Browser-Fenster wird geöffnet.');
   console.log('Bitte logge dich manuell in Meta Business Manager ein.');
   console.log('Nach erfolgreichem Login wird die Session automatisch gespeichert.');
   console.log('');
 
   const browser = await chromium.launch({
-    headless: false, // MUSS sichtbar sein fuer manuellen Login!
+    headless: false, // MUSS sichtbar sein für manuellen Login!
     args: ['--start-maximized'],
   });
 
@@ -41,11 +41,11 @@ async function main() {
 
   const page = await context.newPage();
 
-  // Zur Billing-Seite navigieren (leitet zu Login weiter falls noetig)
+  // Zur Billing-Seite navigieren (leitet zu Login weiter falls nötig)
   await page.goto(BILLING_URL);
 
-  console.log('Warte auf erfolgreichen Login...');
-  console.log('   (Du hast 5 Minuten Zeit fuer Login + 2FA)');
+  console.log('⏳ Warte auf erfolgreichen Login...');
+  console.log('   (Du hast 5 Minuten Zeit für Login + 2FA)');
   console.log('');
 
   // Warte bis die Billing-Seite geladen ist (= Login erfolgreich)
@@ -75,18 +75,18 @@ async function main() {
     console.log('Login erfolgreich! Session gespeichert.');
     console.log(`   Datei: ${AUTH_FILE} (${stats.size} Bytes)`);
     console.log('');
-    console.log('Du kannst den Browser jetzt schliessen.');
+    console.log('Du kannst den Browser jetzt schließen.');
     console.log('Der Scraper (scraper.js) kann nun mit dieser Session arbeiten.');
 
   } catch (e) {
     console.error('');
-    console.error('Login-Timeout (5 Minuten ueberschritten).');
+    console.error('❌ Login-Timeout (5 Minuten überschritten).');
     console.error('   Bitte erneut versuchen: node login.js');
   }
 
-  // Browser offen lassen damit User pruefen kann
+  // Browser offen lassen damit User prüfen kann
   console.log('');
-  console.log('Druecke Ctrl+C um das Script zu beenden.');
+  console.log('Drücke Ctrl+C um das Script zu beenden.');
   
   // Warte auf manuelles Beenden
   await new Promise(() => {});
