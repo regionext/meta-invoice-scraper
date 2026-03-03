@@ -1,0 +1,11 @@
+node_modules
+downloads
+debug_screenshots
+auth.json
+credentials.enc
+*.md
+n8n-workflow.json
+.dockerignore
+Dockerfile
+docker-compose.yml
+.env

@@ -1,0 +1,7 @@
+node_modules/
+downloads/
+debug_screenshots/
+auth.json
+credentials.enc
+.env
+*.log

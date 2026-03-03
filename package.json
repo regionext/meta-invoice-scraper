@@ -1,0 +1,16 @@
+{
+  "name": "meta-invoice-scraper",
+  "version": "1.0.0",
+  "description": "Automatischer Download von Meta Ads Zahlungsnachweisen via Playwright",
+  "main": "scraper.js",
+  "scripts": {
+    "login": "node login.js",
+    "scrape": "node scraper.js",
+    "setup-credentials": "node setup-credentials.js",
+    "test": "node scraper.js '{\"accounts\":[\"act_TESTACCOUNT\"],\"dateFrom\":\"2025-01-01\",\"dateTo\":\"2025-01-31\"}'",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

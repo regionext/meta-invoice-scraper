@@ -1,0 +1,16 @@
+services:
+  scraper:
+    build: .
+    container_name: meta-invoice-scraper
+    ports:
+      - "3000:3000"    # Lokal: offen. Auf Coolify: nur internes Netzwerk
+    volumes:
+      - scraper-data:/data
+    environment:
+      - SCRAPER_API_KEY=${SCRAPER_API_KEY}
+      - HEADLESS=true
+      - DEBUG=false
+    restart: unless-stopped
+
+volumes:
+  scraper-data:
