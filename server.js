@@ -13,7 +13,8 @@
  *   GET  /api/customers                      - Alle Kunden auflisten
  *
  * Sicherheit:
- *   Alle Endpoints (ausser /api/health) erfordern Authorization: Bearer <SCRAPER_API_KEY>
+ *   ALLE Endpoints erfordern Authorization: Bearer <SCRAPER_API_KEY>
+ *   Unautorisierte Requests erhalten generischen 404 (Server verraet nicht seine Existenz)
  */
 
 const http = require('http');
@@ -81,6 +82,7 @@ function checkAuth(req) {
 // ─── Route Handlers ─────────────────────────────────────────────────────────
 
 async function handleHealth(req, res) {
+  if (!checkAuth(req)) return sendJson(res, 404, { error: 'Not Found' });
   sendJson(res, 200, {
     status: 'ok',
     version: '1.0.0',
@@ -92,7 +94,7 @@ async function handleHealth(req, res) {
 }
 
 async function handleScrape(req, res) {
-  if (!checkAuth(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+  if (!checkAuth(req)) return sendJson(res, 404, { error: 'Not Found' });
 
   let body;
   try {
@@ -168,7 +170,7 @@ async function handleScrape(req, res) {
 }
 
 async function handleDownload(req, res, customerId, filename) {
-  if (!checkAuth(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+  if (!checkAuth(req)) return sendJson(res, 404, { error: 'Not Found' });
 
   // Pfad-Traversal verhindern
   const safeName = path.basename(filename);
@@ -197,7 +199,7 @@ async function handleDownload(req, res, customerId, filename) {
 }
 
 async function handleCustomerSetup(req, res) {
-  if (!checkAuth(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+  if (!checkAuth(req)) return sendJson(res, 404, { error: 'Not Found' });
 
   let body;
   try {
@@ -226,12 +228,12 @@ async function handleCustomerSetup(req, res) {
 }
 
 async function handleCustomerList(req, res) {
-  if (!checkAuth(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+  if (!checkAuth(req)) return sendJson(res, 404, { error: 'Not Found' });
   sendJson(res, 200, { customers: listCustomers() });
 }
 
 async function handleCleanup(req, res) {
-  if (!checkAuth(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+  if (!checkAuth(req)) return sendJson(res, 404, { error: 'Not Found' });
 
   let body;
   try {
